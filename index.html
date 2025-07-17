@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>日用品在庫管理</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+    }
+    .item {
+      margin: 5px 0;
+    }
+    .out-of-stock {
+      color: red;
+      font-weight: bold;
+    }
+    .category-group {
+      margin-bottom: 20px;
+      padding: 10px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 5px #ccc;
+    }
+    label, select, input, button {
+      margin: 5px;
+    }
+    .use-btn, .delete-btn {
+      margin-left: 10px;
+    }
+    .info-display {
+      margin: 10px 0;
+      font-size: 14px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧻 日用品在庫管理アプリ</h1>
+
+  <div>
+    <label>商品名:
+      <select id="name" onchange="updateAutoFields()">
+        <option value="">-- 選択してください --</option>
+        <option value="トイレットペーパー">トイレットペーパー</option>
+        <option value="ティッシュペーパー">ティッシュペーパー</option>
+        <option value="トイレの芳香剤">トイレの芳香剤</option>
+        <option value="洗濯洗剤">洗濯洗剤</option>
+        <option value="洗濯用漂白剤">洗濯用漂白剤</option>
+        <option value="液体歯磨き">液体歯磨き</option>
+        <option value="ボディソープ">ボディソープ</option>
+        <option value="シャンプー">シャンプー</option>
+        <option value="ハンドソープ">ハンドソープ</option>
+        <option value="食器洗い洗剤">食器洗い洗剤</option>
+        <option value="ゴミ袋">ゴミ袋</option>
+        <option value="除菌シート">除菌シート</option>
+        <option value="流せるトイレブラシ">流せるトイレブラシ</option>
+        <option value="水分シート">水分シート</option>
+      </select>
+    </label>
+    <label>在庫数: <input id="stock" type="number" min="0" value="1" /></label>
+    <button onclick="addItem()">追加</button>
+
+    <div id="infoDisplay" class="info-display"></div>
+  </div>
+
+  <hr />
+
+  <div id="itemsContainer"></div>
+
+  <script>
+    const itemInfo = {
+      "トイレットペーパー":     { category: "トイレ関連",       priority: "最優先" },
+      "ティッシュペーパー":     { category: "台所・家庭",       priority: "中" },
+      "トイレの芳香剤":         { category: "トイレ関連",       priority: "低" },
+      "洗濯洗剤":               { category: "洗濯・掃除",       priority: "高" },
+      "洗濯用漂白剤":           { category: "洗濯・掃除",       priority: "高" },
+      "液体歯磨き":              { category: "バス・洗面",       priority: "中" },
+      "ボディソープ":           { category: "バス・洗面",       priority: "中" },
+      "シャンプー":             { category: "バス・洗面",       priority: "中" },
+      "ハンドソープ":           { category: "バス・洗面",       priority: "中" },
+      "食器洗い洗剤":           { category: "台所・家庭",       priority: "高" },
+      "ゴミ袋":                 { category: "台所・家庭",       priority: "中" },
+      "除菌シート":             { category: "洗濯・掃除",       priority: "中" },
+      "流せるトイレブラシ":     { category: "トイレ関連",       priority: "低" },
+      "水分シート":             { category: "トイレ関連",       priority: "中" }
+    };
+
+    let items = JSON.parse(localStorage.getItem("items") || "[]");
+
+    function saveItems() {
+      localStorage.setItem("items", JSON.stringify(items));
+    }
+
+    function updateAutoFields() {
+      const name = document.getElementById("name").value;
+      const info = itemInfo[name];
+      const infoDisplay = document.getElementById("infoDisplay");
+
+      if (info) {
+        infoDisplay.textContent = `カテゴリ: ${info.category} ／ 優先度: ${info.priority}`;
+      } else {
+        infoDisplay.textContent = "";
+      }
+    }
+
+    function addItem() {
+      const name = document.getElementById("name").value;
+      const stockToAdd = parseInt(document.getElementById("stock").value);
+      const info = itemInfo[name];
+
+      if (!name || isNaN(stockToAdd) || !info) return;
+
+      const existing = items.find(item => item.name === name);
+      if (existing) {
+        existing.stock += stockToAdd;
+      } else {
+        items.push({
+          name,
+          stock: stockToAdd,
+          category: info.category,
+          priority: info.priority
+        });
+      }
+
+      saveItems();
+      renderItems();
+
+      document.getElementById("name").value = "";
+      document.getElementById("stock").value = "1";
+      document.getElementById("infoDisplay").textContent = "";
+    }
+
+    function useItem(name) {
+      const item = items.find(i => i.name === name);
+      if (item && item.stock > 0) {
+        item.stock -= 1;
+        saveItems();
+        renderItems();
+      }
+    }
+
+    function deleteItem(name) {
+      items = items.filter(i => i.name !== name);
+      saveItems();
+      renderItems();
+    }
+
+    function renderItems() {
+      const container = document.getElementById("itemsContainer");
+      container.innerHTML = "";
+
+      const grouped = {};
+      items.forEach(item => {
+        if (!grouped[item.category]) grouped[item.category] = [];
+        grouped[item.category].push(item);
+      });
+
+      for (const [category, itemList] of Object.entries(grouped)) {
+        const groupDiv = document.createElement("div");
+        groupDiv.className = "category-group";
+        const title = document.createElement("h2");
+        title.textContent = `📂 ${category}`;
+        groupDiv.appendChild(title);
+
+        itemList.sort((a, b) => {
+          const order = { "最優先": 0, "高": 1, "中": 2, "低": 3 };
+          return order[a.priority] - order[b.priority];
+        });
+
+        for (const item of itemList) {
+          const div = document.createElement("div");
+          div.className = "item";
+          if (item.stock === 0) div.classList.add("out-of-stock");
+
+          div.innerHTML = `${item.name}（在庫: ${item.stock} ／ 優先度: ${item.priority}）` +
+            `<button class="use-btn" onclick="useItem('${item.name}')">使った</button>` +
+            `<button class="delete-btn" onclick="deleteItem('${item.name}')">削除</button>`;
+          groupDiv.appendChild(div);
+        }
+
+        container.appendChild(groupDiv);
+      }
+    }
+
+    renderItems();
+  </script>
+</body>
+</html>
